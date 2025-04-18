@@ -1,0 +1,14 @@
+{% extends 'base_generic.html' %}
+
+{% block content %}
+<div class="container text-center mt-5">
+    <h2>سلام {{ user.first_name }}! خوش آمدید</h2>
+    <p>شما با موفقیت وارد حساب کاربری خود شدید.</p>
+
+    <!-- دکمه خروج -->
+    <form action="{% url 'logout' %}" method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">خروج</button>
+    </form>
+</div>
+{% endblock %}
