@@ -6,7 +6,7 @@ from django.contrib.auth.forms import UserCreationForm
 
 class MobileInputForm(forms.Form):
     mobile = forms.CharField(
-        max_length=15,
+        max_length=11,
         validators=[RegexValidator(
             regex=r"^09\d{9}$",
             message="شماره موبایل باید ۱۱ رقمی و با 09 شروع شود.",
@@ -16,10 +16,9 @@ class MobileInputForm(forms.Form):
 
     def clean_mobile(self):
         mobile = self.cleaned_data.get('mobile')
-        if User.objects.filter(mobile=mobile).exists():
-            raise forms.ValidationError("این شماره موبایل قبلاً ثبت‌نام شده است.")
+        # فقط بررسی فرمت، نه وجود در دیتابیس
         return mobile
-    
+
 
 class PasswordForm(forms.Form):
     password = forms.CharField(widget=forms.PasswordInput(attrs={'placeholder': 'رمز عبور'}))

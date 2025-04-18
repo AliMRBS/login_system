@@ -5,5 +5,5 @@ urlpatterns = [
     path('verify-otp/', views.VerifyOTPView.as_view(), name='verify_otp'),
     path('login/', views.LoginWithPasswordView.as_view(), name='login_password'),
     path('complete-info/', views.CompleteProfileView.as_view(), name='complete_info'),
-    path('logout/', views.LogoutView.as_view(), name='logout'),
+    path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
 ]

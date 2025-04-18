@@ -39,8 +39,9 @@ class MobileInputView(FormView):
         user_exists = User.objects.filter(mobile=mobile).exists()
 
         if user_exists:
-            # اگر کاربر وجود داشته باشد، به صفحه وارد کردن رمز عبور هدایت کنید
-            return redirect('login_password')
+            # شماره را در سشن ذخیره می‌کنیم
+            self.request.session['mobile'] = mobile  # ذخیره شماره در سشن
+            return redirect('login_password')  # هدایت به صفحه وارد کردن رمز عبور
         else:
             # اگر کاربر وجود نداشته باشد، OTP ارسال کنید
             otp = OTP.create_code(mobile)
@@ -148,55 +149,74 @@ class LoginWithPasswordView(View):
     def post(self, request):
         form = PasswordForm(request.POST)
         if form.is_valid():
-            mobile = request.POST.get('mobile')
-            password = form.cleaned_data.get('password')  # گرفتن پسورد از فرم
+            mobile = request.session.get('mobile')  # موبایل از session گرفته میشه
+            password = form.cleaned_data.get('password')
             ip = request.META.get('REMOTE_ADDR')
 
             # بررسی بلاک بودن
-            if LoginAttempt.check_if_blocked(mobile=mobile) or LoginAttempt.check_if_blocked(ip_address=ip):
+            if LoginAttempt.check_if_blocked(mobile=mobile, ip_address=ip, attempt_type='password'):
                 messages.error(request, "شما به دلیل تلاش‌های زیاد، موقتاً بلاک شده‌اید.")
                 return redirect('login_password')
 
+            print('username:', mobile)
+            print('pass:', password)
             user = authenticate(username=mobile, password=password)
             if user:
                 login(request, user)
-                LoginAttempt.reset_attempts(mobile=mobile, ip_address=ip)
-                return redirect('home')
+                # لاگ کردن تلاش موفق
+                LoginAttempt.log(mobile=mobile, ip_address=ip, attempt_type='password', successful=True)
+                return redirect('dashboard')
             else:
-                LoginAttempt.increment_attempt(mobile=mobile, ip_address=ip)
-                messages.error(request, "نام کاربری یا رمز عبور اشتباه است.")
+                # لاگ کردن تلاش ناموفق
+                LoginAttempt.log(mobile=mobile, ip_address=ip, attempt_type='password', successful=False)
+                messages.error(request, "شماره یا رمز عبور اشتباه است.")
                 return redirect('login_password')
         else:
             return render(request, 'login_password.html', {'form': form})
+
 
 
 class CompleteProfileView(FormView):
     template_name = 'user_info.html'
     form_class = UserInfoForm
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['password_form'] = PasswordForm()
+        return context
+
     def form_valid(self, form):
         mobile = self.request.session.get('mobile')
         if not mobile:
             return redirect('send_otp')
 
-        # ساخت کاربر
-        user = form.save(commit=False)
-        user.username = mobile
-        # گرفتن پسورد از فرم PasswordForm
+        try:
+            user = User.objects.get(mobile=mobile)
+        except User.DoesNotExist:
+            messages.error(self.request, "کاربری با این شماره پیدا نشد.")
+            return redirect('mobile_input')
+
+        # بروزرسانی اطلاعات فرم
+        user.first_name = form.cleaned_data['first_name']
+        user.last_name = form.cleaned_data['last_name']
+        user.email = form.cleaned_data['email']
+        
         password_form = PasswordForm(self.request.POST)
         if password_form.is_valid():
             user.set_password(password_form.cleaned_data['password'])
             user.save()
-
-            login(self.request, user)  # ورود اتومات بعد ثبت‌نام
+            login(self.request, user)
             messages.success(self.request, "ثبت‌نام با موفقیت انجام شد.")
-            return render(self.request, 'dashboard.html', {'user':user})
+            return render(self.request, 'dashboard.html', {'user': user})
         else:
-            return render(self.request, 'user_info.html', {'form': form, 'password_form': password_form})
+            return render(self.request, 'user_info.html', {
+                'form': form,
+                'password_form': password_form
+            })
+
+class DashboardView(View):
+    def get(self, request):
+        user = request.user
+        return render(request, 'dashboard.html', {'user': user})
 
 
-
-class LogoutView(View):
-    def get(self, request, *args, **kwargs):
-        logout(request)  # انجام لاگ‌اوت
-        return redirect('login')  # هدایت به صفحه ورود یا هر صفحه دیگری
