@@ -21,35 +21,35 @@ class MobileInputView(FormView):
         mobile = form.cleaned_data.get('mobile')
         ip = self.request.META.get('REMOTE_ADDR')
 
-        # بررسی بلاک بودن
-        if LoginAttempt.check_if_blocked(mobile=mobile, ip_address=ip, attempt_type='otp'):
-            messages.error(self.request, "به دلیل تلاش‌های زیاد، شماره یا آی‌پی شما موقتاً بلاک شده است.")
-            return redirect('mobile_input')
-
-        # ثبت تلاش جدید برای وارد کردن شماره موبایل
-        login_attempt = LoginAttempt.log(mobile=mobile, ip_address=ip, attempt_type='otp', successful=False)
-
-        # بررسی و بلاک در صورت نیاز
-        if LoginAttempt.check_if_blocked(mobile=mobile, ip_address=ip, attempt_type='otp'):
-            messages.error(self.request, "شما به دلیل تلاش‌های زیاد موقتاً بلاک شده‌اید.")
-            return redirect('mobile_input')
-
         # چک وجود کاربر
         User = get_user_model()
         user_exists = User.objects.filter(mobile=mobile).exists()
 
         if user_exists:
             # شماره را در سشن ذخیره می‌کنیم
-            self.request.session['mobile'] = mobile  # ذخیره شماره در سشن
-            return redirect('login_password')  # هدایت به صفحه وارد کردن رمز عبور
-        else:
-            # اگر کاربر وجود نداشته باشد، OTP ارسال کنید
-            otp = OTP.create_code(mobile)
-            print(f"Sending OTP {otp.code} to {mobile}")  # یا send_otp_sms اگر پیامک‌داری
-
             self.request.session['mobile'] = mobile
-            messages.success(self.request, "کد تأیید برای شما ارسال شد.")
-            return redirect('verify_otp')  # هدایت به صفحه تایید OTP
+            return redirect('login_password')  # هدایت به صفحه وارد کردن رمز عبور
+
+        # ✅ فقط در این حالت که کاربر وجود نداره، چک بلاک و لاگ ثبت می‌کنیم
+        if LoginAttempt.check_if_blocked(mobile=mobile, ip_address=ip, attempt_type='otp'):
+            messages.error(self.request, "به دلیل تلاش‌های زیاد، شماره یا آی‌پی شما موقتاً بلاک شده است.")
+            return redirect('mobile_input')
+
+        login_attempt = LoginAttempt.log(mobile=mobile, ip_address=ip, attempt_type='otp', successful=False)
+
+        # بررسی مجدد بلاک بودن (بعد از لاگ)
+        if LoginAttempt.check_if_blocked(mobile=mobile, ip_address=ip, attempt_type='otp'):
+            messages.error(self.request, "شما به دلیل تلاش‌های زیاد موقتاً بلاک شده‌اید.")
+            return redirect('mobile_input')
+
+        # اگر کاربر وجود نداشته باشد، OTP ارسال کنید
+        otp = OTP.create_code(mobile)
+        print(f"Sending OTP {otp.code} to {mobile}")
+
+        self.request.session['mobile'] = mobile
+        messages.success(self.request, "کد تأیید برای شما ارسال شد.")
+        return redirect('verify_otp')
+
 
 
 class SendOTPView(View):
