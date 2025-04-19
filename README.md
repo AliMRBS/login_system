@@ -11,7 +11,7 @@
 
 ## نصب و اجرا
 
-### 1. کلون کردن مخزن
+### 1. کلون کردن پروژه
 
 ```bash
 git clone https://github.com/ALIMRBS/login_system.git
