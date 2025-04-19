@@ -52,6 +52,12 @@ class MobileInputView(FormView):
 
 
 
+from django.views import View
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .models import LoginAttempt, OTP  # یا مسیر درست ایمپورت OTP
+from django.utils import timezone
+
 class SendOTPView(View):
     def get(self, request):
         return render(request, 'send_otp.html')  # فرم دریافت شماره
@@ -60,26 +66,27 @@ class SendOTPView(View):
         mobile = request.POST.get('mobile')
         ip = request.META.get('REMOTE_ADDR')
 
-        # بررسی بلاک بودن شماره یا آی‌پی
-        if LoginAttempt.check_if_blocked(mobile=mobile) or LoginAttempt.check_if_blocked(ip_address=ip):
+        # بررسی بلاک بودن شماره یا آی‌پی برای OTP
+        if LoginAttempt.check_if_blocked(mobile=mobile, attempt_type='otp', block_after=4) or \
+           LoginAttempt.check_if_blocked(ip_address=ip, attempt_type='otp', block_after=4):
             messages.error(request, "شما به دلیل تلاش‌های زیاد، موقتاً بلاک شده‌اید.")
             return redirect('send_otp')
 
-        # بررسی تعداد تلاش‌ها و بلاک کردن در صورت نیاز
-        LoginAttempt.increment_attempt(mobile=mobile, ip_address=ip, is_sms=True)
-        if LoginAttempt.should_block(mobile=mobile, is_sms=True):
-            block_mobile(mobile)
+        # ثبت تلاش ناموفق دریافت OTP
+        LoginAttempt.log(mobile=mobile, ip_address=ip, attempt_type='otp', successful=False)
+
+        # بررسی مجدد بلاک شدن پس از ثبت تلاش
+        if LoginAttempt.check_if_blocked(mobile=mobile, attempt_type='otp', block_after=4):
             messages.error(request, "شماره شما به دلیل تلاش زیاد برای دریافت کد، بلاک شده است.")
             return redirect('send_otp')
-        if LoginAttempt.should_block(ip_address=ip, is_sms=True):
-            block_ip(ip)
+
+        if LoginAttempt.check_if_blocked(ip_address=ip, attempt_type='otp', block_after=4):
             messages.error(request, "آی‌پی شما به دلیل تلاش زیاد برای دریافت کد، بلاک شده است.")
             return redirect('send_otp')
 
         # ساخت و ارسال OTP
         otp = OTP.create_code(mobile)
-        # (تابع ارسال پیامک می‌تونه بعداً اضافه شه)
-        print(f"Sending OTP {otp.code} to {mobile}")  # موقتاً فقط لاگ می‌کنیم
+        print(f"Sending OTP {otp.code} to {mobile}")  # برای تست
 
         request.session['mobile'] = mobile
         return redirect('verify_otp')
@@ -106,7 +113,7 @@ class VerifyOTPView(View):
             mobile=mobile,
             ip_address=ip_address,
             attempt_type='otp',
-            block_after=3,
+            block_after=4,
             block_minutes=60
         ):
             messages.error(request, 'تعداد تلاش‌های ناموفق زیاد بوده. لطفاً بعداً امتحان کنید.')

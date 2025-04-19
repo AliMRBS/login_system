@@ -49,7 +49,7 @@ class LoginAttempt(models.Model):
     block_until = models.DateTimeField(null=True, blank=True)  # زمان پایان بلاک
 
     @classmethod
-    def check_if_blocked(cls, mobile=None, ip_address=None, attempt_type='password', block_after=3, block_minutes=60):
+    def check_if_blocked(cls, mobile=None, ip_address=None, attempt_type='password', block_after=4, block_minutes=60):
         from django.utils import timezone
         from datetime import timedelta
 
