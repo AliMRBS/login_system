@@ -1,9 +1,10 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from .user_manager import UserManager
+from django.utils import timezone
+from datetime import timedelta
 
 class User(AbstractUser):
-    # حذف username از مدل
     username = None
     mobile = models.CharField(max_length=15, unique=True)
     email = models.EmailField(blank=True, null=True)
@@ -31,7 +32,6 @@ class OTP(models.Model):
     def create_code(cls, mobile):
         from random import randint
         code = str(randint(100000, 999999))
-        # حذف OTP قبلی که ممکنه برای این موبایل ارسال شده باشه
         cls.objects.filter(mobile=mobile).delete()
         return cls.objects.create(mobile=mobile, code=code)
 
@@ -45,16 +45,14 @@ class LoginAttempt(models.Model):
     attempt_type = models.CharField(max_length=20, choices=[('password', 'Password'), ('otp', 'OTP')])
     successful = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    is_blocked = models.BooleanField(default=False)  # وضعیت بلاک
-    block_until = models.DateTimeField(null=True, blank=True)  # زمان پایان بلاک
+    is_blocked = models.BooleanField(default=False)  
+    block_until = models.DateTimeField(null=True, blank=True)  
 
     @classmethod
     def check_if_blocked(cls, mobile=None, ip_address=None, attempt_type='password', block_after=4, block_minutes=60):
-        from django.utils import timezone
-        from datetime import timedelta
+        from .utils import block_mobile, block_ip  
 
         time_threshold = timezone.now() - timedelta(minutes=block_minutes)
-
         filters = {
             "created_at__gte": time_threshold,
             "successful": False,
@@ -68,17 +66,15 @@ class LoginAttempt(models.Model):
         attempts = cls.objects.filter(**filters)
         failed_attempts = attempts.count()
 
-        # بررسی اینکه آیا بیش از حد تلاش ناموفق بوده است
+        # اگر تعداد تلاش‌های ناموفق از حد تعیین‌شده بیشتر بود، بلاک کن
         if failed_attempts >= block_after:
-            block_until = timezone.now() + timedelta(minutes=block_minutes)
-            # به‌روزرسانی وضعیت بلاک برای شماره موبایل یا IP
             if mobile:
-                attempts.update(is_blocked=True, block_until=block_until)
+                block_mobile(mobile, block_minutes)
             if ip_address:
-                attempts.update(is_blocked=True, block_until=block_until)
+                block_ip(ip_address, block_minutes)
+            return True  
 
-            return True  # نشان می‌دهد که بلاک شده است
-        return False  # هنوز بلاک نشده است
+        return False 
 
     @classmethod
     def log(cls, mobile=None, ip_address=None, attempt_type='password', successful=False):

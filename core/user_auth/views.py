@@ -3,11 +3,9 @@ from django.views.generic.edit import FormView
 from django.contrib.auth import get_user_model
 from django.contrib import messages
 from django.shortcuts import render, redirect
-from django.urls import reverse_lazy
 from .forms import MobileInputForm, UserInfoForm, OTPForm, PasswordForm
 from .models import OTP, LoginAttempt
-from .utils import block_mobile, block_ip
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login
 User = get_user_model()
 
 
@@ -15,8 +13,7 @@ User = get_user_model()
 class MobileInputView(FormView):
     template_name = 'mobile_input.html'
     form_class = MobileInputForm
-    success_url = '/verify-otp/'  # این بخش برای هدایت به صفحه تایید OTP است
-
+    success_url = '/verify-otp/'  
     def form_valid(self, form):
         mobile = form.cleaned_data.get('mobile')
         ip = self.request.META.get('REMOTE_ADDR')
@@ -28,9 +25,8 @@ class MobileInputView(FormView):
         if user_exists:
             # شماره را در سشن ذخیره می‌کنیم
             self.request.session['mobile'] = mobile
-            return redirect('login_password')  # هدایت به صفحه وارد کردن رمز عبور
+            return redirect('login_password')  
 
-        # ✅ فقط در این حالت که کاربر وجود نداره، چک بلاک و لاگ ثبت می‌کنیم
         if LoginAttempt.check_if_blocked(mobile=mobile, ip_address=ip, attempt_type='otp'):
             messages.error(self.request, "به دلیل تلاش‌های زیاد، شماره یا آی‌پی شما موقتاً بلاک شده است.")
             return redirect('mobile_input')
@@ -42,7 +38,7 @@ class MobileInputView(FormView):
             messages.error(self.request, "شما به دلیل تلاش‌های زیاد موقتاً بلاک شده‌اید.")
             return redirect('mobile_input')
 
-        # اگر کاربر وجود نداشته باشد، OTP ارسال کنید
+        # ارسال OTP درصورت عدم وجود کاربر
         otp = OTP.create_code(mobile)
         print(f"Sending OTP {otp.code} to {mobile}")
         self.request.session['otp_code'] = otp.code  # فقط برای تست، بعداً حذف بشه
@@ -56,15 +52,16 @@ class MobileInputView(FormView):
 
 class SendOTPView(View):
     def get(self, request):
-        return render(request, 'send_otp.html')  # فرم دریافت شماره
+        return render(request, 'send_otp.html')  
 
     def post(self, request):
         mobile = request.POST.get('mobile')
         ip = request.META.get('REMOTE_ADDR')
 
         # بررسی بلاک بودن شماره یا آی‌پی برای OTP
-        if LoginAttempt.check_if_blocked(mobile=mobile, attempt_type='otp', block_after=4) or \
-           LoginAttempt.check_if_blocked(ip_address=ip, attempt_type='otp', block_after=4):
+        if LoginAttempt.check_if_blocked(mobile=mobile, ip_address=None, attempt_type='otp') or \
+           LoginAttempt.check_if_blocked(mobile=None, ip_address=ip, attempt_type='otp'):
+
             messages.error(request, "شما به دلیل تلاش‌های زیاد، موقتاً بلاک شده‌اید.")
             return redirect('send_otp')
 
@@ -72,11 +69,11 @@ class SendOTPView(View):
         LoginAttempt.log(mobile=mobile, ip_address=ip, attempt_type='otp', successful=False)
 
         # بررسی مجدد بلاک شدن پس از ثبت تلاش
-        if LoginAttempt.check_if_blocked(mobile=mobile, attempt_type='otp', block_after=4):
+        if LoginAttempt.check_if_blocked(mobile=mobile, attempt_type='otp'):
             messages.error(request, "شماره شما به دلیل تلاش زیاد برای دریافت کد، بلاک شده است.")
             return redirect('send_otp')
 
-        if LoginAttempt.check_if_blocked(ip_address=ip, attempt_type='otp', block_after=4):
+        if LoginAttempt.check_if_blocked(ip_address=ip, attempt_type='otp'):
             messages.error(request, "آی‌پی شما به دلیل تلاش زیاد برای دریافت کد، بلاک شده است.")
             return redirect('send_otp')
 
@@ -84,7 +81,6 @@ class SendOTPView(View):
         otp = OTP.create_code(mobile)
         print(f"Sending OTP {otp.code} to {mobile}")  # برای تست
         request.session['otp_code'] = otp.code  # فقط برای تست، بعداً حذف بشه
-
 
         request.session['mobile'] = mobile
         return redirect('verify_otp')
@@ -111,9 +107,7 @@ class VerifyOTPView(View):
         if LoginAttempt.check_if_blocked(
             mobile=mobile,
             ip_address=ip_address,
-            attempt_type='otp',
-            block_after=4,
-            block_minutes=60
+            attempt_type='otp'
         ):
             messages.error(request, 'تعداد تلاش‌های ناموفق زیاد بوده. لطفاً بعداً امتحان کنید.')
             return render(request, self.template_name, {'form': form})
@@ -128,7 +122,7 @@ class VerifyOTPView(View):
                 messages.error(request, 'کد وارد شده اشتباه است.')
                 return render(request, self.template_name, {'form': form})
 
-            # موفقیت
+            # تلاش موفق
             otp_instance.is_used = True
             otp_instance.save()
 
@@ -140,11 +134,10 @@ class VerifyOTPView(View):
             # ذخیره آیدی یوزر تو سشن
             request.session['user_id'] = user.id
 
-            return redirect('complete_info')  # یا هر صفحه‌ای که میخوای
+            return redirect('complete_info')  
         else:
             messages.error(request, 'لطفاً کد OTP معتبر وارد کنید.')
             return render(request, self.template_name, {'form': form})
-
 
 
 class LoginWithPasswordView(View):
@@ -179,7 +172,6 @@ class LoginWithPasswordView(View):
                 return redirect('login_password')
         else:
             return render(request, 'login_password.html', {'form': form})
-
 
 
 class CompleteProfileView(FormView):

@@ -6,7 +6,6 @@ from .models import User, OTP
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    # از اونجایی که username نداری، باید فیلدهای لاگین رو مشخص کنی
     fieldsets = (
         (None, {'fields': ('mobile', 'password')}),
         (('Personal info'), {'fields': ('first_name', 'last_name', 'email')}),

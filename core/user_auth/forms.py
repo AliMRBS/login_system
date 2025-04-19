@@ -1,7 +1,6 @@
 from django import forms
 from .models import User
 from django.core.validators import RegexValidator
-from django.contrib.auth.forms import UserCreationForm
 
 
 class MobileInputForm(forms.Form):
@@ -16,7 +15,6 @@ class MobileInputForm(forms.Form):
 
     def clean_mobile(self):
         mobile = self.cleaned_data.get('mobile')
-        # فقط بررسی فرمت، نه وجود در دیتابیس
         return mobile
 
 
@@ -25,7 +23,6 @@ class PasswordForm(forms.Form):
 
     def clean_password(self):
         password = self.cleaned_data.get('password')
-        # شما می‌توانید قوانین اضافی مثل حداقل طول رمز عبور را اینجا بررسی کنید.
         return password
 
 
@@ -51,7 +48,6 @@ class UserInfoForm(forms.ModelForm):
 
     def clean_password(self):
         password = self.cleaned_data.get('password')
-        # بررسی حداقل طول برای پسورد (در صورت نیاز)
         if len(password) < 6:
             raise forms.ValidationError("رمز عبور باید حداقل ۶ کاراکتر باشد.")
         return password
