@@ -3,10 +3,16 @@
 {% block title %}تأیید کد{% endblock %}
 
 {% block content %}
-    <h2>کد ارسال شده را وارد کنید</h2>
+    <h4 class="mb-4">کد ارسال شده را وارد کنید</h4>
+    {% if test_otp %}
+            <p style="color: red; margin-top: 10px;">
+                <strong>کد آزمایشی (فقط برای تست):</strong> {{ test_otp }}
+            </p>
+    {% endif %}
     <form method="post">
         {% csrf_token %}
         {{ form.as_p }}
-        <button type="submit">تأیید</button>
+        <button class="btn btn-info" type="submit">تأیید</button>
     </form>
+
 {% endblock %}

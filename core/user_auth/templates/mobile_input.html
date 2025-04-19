@@ -3,10 +3,10 @@
 {% block title %}ورود / ثبت‌نام{% endblock %}
 
 {% block content %}
-    <h2>ورود یا ثبت‌نام با شماره موبایل</h2>
+    <h4 class="mb-4">ورود یا ثبت‌نام با شماره موبایل</h4>
     <form method="post">
         {% csrf_token %}
         {{ form.as_p }}
-        <button type="submit">ادامه</button>
+        <button class="btn btn-primary" type="submit">ادامه</button>
     </form>
 {% endblock %}

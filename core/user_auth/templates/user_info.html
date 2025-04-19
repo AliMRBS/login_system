@@ -3,10 +3,10 @@
 {% block title %}تکمیل اطلاعات{% endblock %}
 
 {% block content %}
-    <h2>تکمیل اطلاعات کاربری</h2>
+    <h4 class="mb-4">تکمیل اطلاعات کاربری</h4>
     <form method="post">
         {% csrf_token %}
         {{ form.as_p }}
-        <button type="submit">ثبت</button>
+        <button class="btn btn-primary" type="submit">ثبت</button>
     </form>
 {% endblock %}

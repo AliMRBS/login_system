@@ -45,6 +45,7 @@ class MobileInputView(FormView):
         # اگر کاربر وجود نداشته باشد، OTP ارسال کنید
         otp = OTP.create_code(mobile)
         print(f"Sending OTP {otp.code} to {mobile}")
+        self.request.session['otp_code'] = otp.code  # فقط برای تست، بعداً حذف بشه
 
         self.request.session['mobile'] = mobile
         messages.success(self.request, "کد تأیید برای شما ارسال شد.")
@@ -52,11 +53,6 @@ class MobileInputView(FormView):
 
 
 
-from django.views import View
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from .models import LoginAttempt, OTP  # یا مسیر درست ایمپورت OTP
-from django.utils import timezone
 
 class SendOTPView(View):
     def get(self, request):
@@ -87,6 +83,8 @@ class SendOTPView(View):
         # ساخت و ارسال OTP
         otp = OTP.create_code(mobile)
         print(f"Sending OTP {otp.code} to {mobile}")  # برای تست
+        request.session['otp_code'] = otp.code  # فقط برای تست، بعداً حذف بشه
+
 
         request.session['mobile'] = mobile
         return redirect('verify_otp')
@@ -97,7 +95,8 @@ class VerifyOTPView(View):
 
     def get(self, request):
         form = OTPForm()
-        return render(request, self.template_name, {'form': form})
+        otp_code = request.session.get('otp_code')  # فقط برای تست
+        return render(request, self.template_name, {'form': form, 'test_otp': otp_code})
 
     def post(self, request):
         form = OTPForm(request.POST)
